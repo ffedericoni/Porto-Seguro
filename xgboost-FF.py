@@ -125,6 +125,9 @@ print('Best Score=', mdl.attr('best_score') )
 import operator
 x = mdl.get_fscore()
 sorted_score = sorted(x.items(), key=operator.itemgetter(1))
-print('Features Score=', sorted_score)
-for i,f in enumerate(train.columns):
-    print(i,f)
+for ind in range(len(sorted_score)):
+    ii = int(sorted_score[ind][0].replace('f', ''))
+    print(sorted_score[ind]+(train.columns[ii],))
+#print('Features Score=', sorted_score)
+#for i,f in enumerate(train.columns):
+#    print(i,f)
