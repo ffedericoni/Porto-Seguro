@@ -18,6 +18,8 @@ from xgboost import XGBClassifier
 #import lightgbm as lgb
 #import xgboost as xgb
 import time
+from multiprocessing import cpu_count
+cpus = cpu_count()
 
 def timer(start_time=None):
     if not start_time:
@@ -110,18 +112,22 @@ sss = StratifiedShuffleSplit(n_splits=folds, test_size=0.30, random_state=5)
 
 random_search = RandomizedSearchCV(xgb, param_distributions=params, 
                                    n_iter=param_comb, scoring='roc_auc', 
-                                   n_jobs=4, cv=sss.split(X,y), 
+                                   n_jobs=cpus, cv=sss.split(X,y), 
                                    verbose=4, random_state=101, 
                                    iid=True
                                    )
 
 # Here we go
 #fit_parm = {
-#        'early_stopping_rounds': 70
+#        'early_stopping_rounds': [70]
+#        'eval_metric': 'auc'
 #        }
 
 start_time = timer(None) # timing starts from this point for "start_time" variable
-random_search.fit(X, y)
+random_search.fit(X, y, {
+       'early_stopping_rounds': 70,
+       'eval_metric': 'auc'
+       } )
 timer(start_time) # timing ends here for "start_time" variable
 
 print('\n All results:')
