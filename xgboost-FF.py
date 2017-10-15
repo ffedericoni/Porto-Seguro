@@ -96,7 +96,8 @@ params = {
         'gamma': [1, 1.25, 1.5],
         'subsample': [0.6, 0.8, 1.0],
         'colsample_bytree': [0.6, 0.8, 1.0],
-        'max_depth': [5]
+        'max_depth': [5],
+        'scale_pos_weight': [1, 5, 30]
         }
 
 xgb = XGBClassifier(learning_rate=0.02, n_estimators=800, objective='binary:logistic',
@@ -111,11 +112,16 @@ random_search = RandomizedSearchCV(xgb, param_distributions=params,
                                    n_iter=param_comb, scoring='roc_auc', 
                                    n_jobs=4, cv=sss.split(X,y), 
                                    verbose=4, random_state=101, 
-                                   iid=True )
+                                   iid=True
+                                   )
 
 # Here we go
+#fit_parm = {
+#        'early_stopping_rounds': 70
+#        }
+
 start_time = timer(None) # timing starts from this point for "start_time" variable
-random_search.fit(X, y, early_stopping_rounds=70)
+random_search.fit(X, y)
 timer(start_time) # timing ends here for "start_time" variable
 
 print('\n All results:')
