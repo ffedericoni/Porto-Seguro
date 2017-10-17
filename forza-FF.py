@@ -68,10 +68,10 @@ def gini_xgb(pred, y):
 
 start_time = timer(None) # timing starts from this point for "start_time" variable
 
-params = {'eta': 0.02, 'max_depth': 4, 'subsample': 0.9, 'colsample_bytree': 0.9,
+params = {'eta': 0.02, 'max_depth': 4, 'subsample': 0.8, 'colsample_bytree': 0.8,
           'objective': 'binary:logistic', 'eval_metric': 'auc', 
-          'scale_pos_weight': 5, 'random_state': 99, 'silent': True}
-x1, x2, y1, y2 = model_selection.train_test_split(train, train['target'], test_size=0.25, random_state=99)
+          'scale_pos_weight': 2, 'random_state': 99, 'silent': True}
+x1, x2, y1, y2 = model_selection.train_test_split(train, train['target'], test_size=0.24, random_state=99)
 
 x1 = multi_transform(x1)
 x2 = multi_transform(x2)
@@ -95,13 +95,18 @@ x1 = x1[col]
 x2 = x2[col]
 
 watchlist = [(xgb.DMatrix(x1, y1), 'train'), (xgb.DMatrix(x2, y2), 'valid')]
-model = xgb.train(params, xgb.DMatrix(x1, y1), 5000,  watchlist, feval=gini_xgb, 
+model = xgb.train(params, xgb.DMatrix(x1, y1), 5000,  watchlist, #feval=gini_xgb, 
                   maximize=True, verbose_eval=100, early_stopping_rounds=200)
 test['target'] = model.predict(xgb.DMatrix(test[col]), ntree_limit=model.best_ntree_limit+45)
 test['target'] = (np.exp(test['target'].values) - 1.0).clip(0,1)
 timer(start_time) # timing ends here for "start_time" variable
+
 filename = 'Forza-xgb-d' + str(start_time.day) + '-h' + str(start_time.hour) + '.csv'
 test[['id','target']].to_csv(filename, index=False, float_format='%.5f')
+print("Filename=", filename)
+print("Params=", params)
+dumpfile = 'Forza-xgb-d' + str(start_time.day) + '-h' + str(start_time.hour) + '.dump'
+model.dump_model(dumpfile, fmap='', with_stats=True)
 
 
 ##LightGBM
