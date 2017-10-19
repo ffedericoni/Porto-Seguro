@@ -72,8 +72,9 @@ col = [c for c in X.columns if c not in ['id','target']]
 col = [c for c in col if not c.startswith('ps_calc_')]
 print(X.values.shape, test.values.shape)
 X = X[col]
-test = test[col] #correzione
 print(X.values.shape, test.values.shape)
+
+#%%
 
 #remove duplicates just in case
 #tdups = multi_transform(train)
@@ -91,21 +92,21 @@ print(X.values.shape, test.values.shape)
 
 # A parameter grid for XGBoost
 params = {
-        'min_child_weight': [1],
-        'gamma': [1, 1.25],
+        'min_child_weight': [4],
+        'gamma': [1.5, 1.25],
         'subsample': [0.8],
         'colsample_bytree': [0.8],
-        'max_depth': [4],
+        'max_depth': [5],
         'scale_pos_weight': [1.25]
         }
 seed = 5
-xgb = XGBClassifier(learning_rate=0.02, n_estimators=2000, objective='binary:logistic',
-                    silent=True, missing=-1, random_state=seed)
+xgb = XGBClassifier(learning_rate=0.02, n_estimators=1500, objective='binary:logistic',
+                    silent=False, missing=-1, random_state=seed)
 folds = 5
 param_comb = 12
 
 skf = StratifiedKFold(n_splits=folds, shuffle = True, random_state = seed)
-sss = StratifiedShuffleSplit(n_splits=folds, test_size=0.30, random_state=seed)
+sss = StratifiedShuffleSplit(n_splits=folds, test_size=0.25, random_state=seed)
 
 #random_search = RandomizedSearchCV(xgb, param_distributions=params, 
 #                                   n_iter=param_comb, scoring='roc_auc', 
@@ -115,9 +116,16 @@ sss = StratifiedShuffleSplit(n_splits=folds, test_size=0.30, random_state=seed)
 random_search = GridSearchCV(xgb, param_grid=params, 
                                    scoring='roc_auc', 
                                    n_jobs=4, cv=sss.split(X,y), 
-                                   verbose=4
+                                   verbose=5,
+                                   pre_dispatch='n_jobs',
+                                   refit=True
+#                                   ,
+#                                   fit_params= { 'eval_metric': 'auc',
+#                                    'early_stopping_rounds': 100
+#                                   }
                                    )
-
+#%%
+#TODO pass parameters to fit
 start_time = timer(None) # timing starts from this point for "start_time" variable
 random_search.fit(X, y
 #                  , {
@@ -135,13 +143,16 @@ print('\n Best normalized gini score for %d-fold search with %d parameter combin
 print(random_search.best_score_ * 2 - 1)
 print('\n Best hyperparameters:')
 print(random_search.best_params_)
+print('\n Parameters:')
+print(random_search.get_params)
 results = pd.DataFrame(random_search.cv_results_)
-y_test = random_search.predict_proba(test.values)
+print('\n Predicting...')
+y_test = random_search.predict_proba(test[col])
 results_df = pd.DataFrame(data={'id':id_test, 'target':y_test[:,1]})
 
 
 filename = 'Forza-xgb-d' + str(start_time.day) + '-h' + str(start_time.hour) + '.csv'
-results_df.to_csv(filename, index=False)
+results_df.to_csv(filename, index=False,  float_format='%.5f')
 #test[['id','target']].to_csv(filename, index=False, float_format='%.5f')
 print("Filename=", filename)
 #dumpfile = 'Forza-xgb-d' + str(start_time.day) + '-h' + str(start_time.hour) + '.dump'
