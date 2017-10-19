@@ -29,7 +29,7 @@ d_median = train.median(axis=0)
 d_mean = train.mean(axis=0)
 train = train.fillna(-1)
 one_hot = {c: list(train[c].unique()) for c in train.columns if c not in ['id','target']}
-
+#%%
 def transform_df(df):
     df = pd.DataFrame(df)
     dcol = [c for c in df.columns if c not in ['id','target']]
@@ -71,9 +71,9 @@ def gini_xgb(pred, y):
 start_time = timer(None) # timing starts from this point for "start_time" variable
 
 seed=99
-params = {'eta': 0.02, 'max_depth': 6, 'subsample': 0.8, 'colsample_bytree': 0.8,
+params = {'eta': 0.02, 'max_depth': 4, 'subsample': 0.9, 'colsample_bytree': 0.9,
           'objective': 'binary:logistic', 'eval_metric': 'auc', 
-          'scale_pos_weight': 31.25, 'random_state': seed, 'silent': True}
+          'scale_pos_weight': 1, 'random_state': seed, 'silent': True}
 test_perc = 0.25
 x1, x2, y1, y2 = model_selection.train_test_split(train, train['target'], 
                                                   test_size=test_perc, 
@@ -106,8 +106,8 @@ x1 = x1[col]
 x2 = x2[col]
 
 watchlist = [(xgb.DMatrix(x1, y1), 'train'), (xgb.DMatrix(x2, y2), 'valid')]
-model = xgb.train(params, xgb.DMatrix(x1, y1), 327,  watchlist, #feval=gini_xgb, 
-                  maximize=True, verbose_eval=100, early_stopping_rounds=300)
+model = xgb.train(params, xgb.DMatrix(x1, y1), 961,  watchlist, #feval=gini_xgb, 
+                  maximize=True, verbose_eval=100, early_stopping_rounds=200)
 test['target'] = model.predict(xgb.DMatrix(test[col]), ntree_limit=model.best_ntree_limit+45)
 test['target'] = (np.exp(test['target'].values) - 1.0).clip(0,1)
 timer(start_time) # timing ends here for "start_time" variable
