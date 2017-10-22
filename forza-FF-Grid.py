@@ -18,6 +18,8 @@ def timer(start_time=None):
         tmin, tsec = divmod(temp_sec, 60)
         print('\n Time taken: %i hours %i minutes and %s seconds.' % (thour, tmin, round(tsec, 2)))
 
+print("Start at=", datetime.now())
+
 train = pd.read_csv('../input/train.csv')
 test = pd.read_csv('../input/test.csv')
 id_test = test['id'].values
@@ -41,7 +43,7 @@ def transform_df(df):
     for c in dcol:
         if '_bin' not in c: #standard arithmetic
             df[c+str('_median_range')] = (df[c].values > d_median[c]).astype(np.int)
-            df[c+str('_mean_range')] = (df[c].values > d_mean[c]).astype(np.int)
+            #df[c+str('_mean_range')] = (df[c].values > d_mean[c]).astype(np.int)
             #df[c+str('_sq')] = np.power(df[c].values,2).astype(np.float32)
             #df[c+str('_sqr')] = np.square(df[c].values).astype(np.float32)
             #df[c+str('_log')] = np.log(np.abs(df[c].values) + 1)
@@ -93,45 +95,45 @@ print(X.values.shape, test.values.shape)
 # A parameter grid for XGBoost
 params = {
         'min_child_weight': [4],
-        'gamma': [1.5, 1.25],
+        'gamma': [1.15, 1.05],
         'subsample': [0.8],
         'colsample_bytree': [0.8],
         'max_depth': [5],
-        'scale_pos_weight': [1.25]
+        'scale_pos_weight': [1.00]
         }
 seed = 5
 xgb = XGBClassifier(learning_rate=0.02, n_estimators=1500, objective='binary:logistic',
                     silent=False, missing=-1, random_state=seed)
 folds = 5
-param_comb = 12
+param_comb = 2
 
 skf = StratifiedKFold(n_splits=folds, shuffle = True, random_state = seed)
 sss = StratifiedShuffleSplit(n_splits=folds, test_size=0.25, random_state=seed)
 
-#random_search = RandomizedSearchCV(xgb, param_distributions=params, 
-#                                   n_iter=param_comb, scoring='roc_auc', 
-#                                   n_jobs=4, cv=sss.split(X,y), 
-#                                   verbose=4, random_state=101
-#                                   )
-random_search = GridSearchCV(xgb, param_grid=params, 
-                                   scoring='roc_auc', 
+random_search = RandomizedSearchCV(xgb, param_distributions=params, 
+                                   n_iter=param_comb, scoring='roc_auc', 
                                    n_jobs=4, cv=sss.split(X,y), 
-                                   verbose=5,
-                                   pre_dispatch='n_jobs',
-                                   refit=True
+                                   verbose=10, random_state=seed
+                                   )
+#random_search = GridSearchCV(xgb, param_grid=params, 
+#                                   scoring='roc_auc', 
+#                                   n_jobs=4, cv=sss.split(X,y), 
+#                                   verbose=5,
+#                                   pre_dispatch='n_jobs',
+#                                   refit=True
 #                                   ,
 #                                   fit_params= { 'eval_metric': 'auc',
 #                                    'early_stopping_rounds': 100
 #                                   }
-                                   )
+#                                   )
 #%%
 #TODO pass parameters to fit
 start_time = timer(None) # timing starts from this point for "start_time" variable
-random_search.fit(X, y
-#                  , {
-#       'early_stopping_rounds': 200,
-#       'eval_metric': 'auc'
-#       } 
+fit_params = {
+       'early_stopping_rounds': [200],
+       'eval_metric': 'auc'
+       } 
+random_search.fit(X, y, **fit_params
         )
 timer(start_time) # timing ends here for "start_time" variable
 
@@ -157,7 +159,7 @@ results_df.to_csv(filename, index=False,  float_format='%.5f')
 print("Filename=", filename)
 #dumpfile = 'Forza-xgb-d' + str(start_time.day) + '-h' + str(start_time.hour) + '.dump'
 #model.dump_model(dumpfile, fmap='', with_stats=True)
-
+print("End at=", datetime.now())
 
 ##LightGBM
 #def gini_lgb(preds, dtrain):
