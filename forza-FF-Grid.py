@@ -95,17 +95,17 @@ print(X.values.shape, test.values.shape)
 # A parameter grid for XGBoost
 params = {
         'min_child_weight': [4],
-        'gamma': [1.15, 1.05],
-        'subsample': [0.8],
+        'gamma': [1.05],
+        'subsample': [0.8, 0.9],
         'colsample_bytree': [0.8],
         'max_depth': [5],
-        'scale_pos_weight': [1.00]
+        'scale_pos_weight': [1.00, 0.3]
         }
 seed = 5
 xgb = XGBClassifier(learning_rate=0.02, n_estimators=1500, objective='binary:logistic',
                     silent=False, missing=-1, random_state=seed)
 folds = 5
-param_comb = 2
+param_comb = 4
 
 skf = StratifiedKFold(n_splits=folds, shuffle = True, random_state = seed)
 sss = StratifiedShuffleSplit(n_splits=folds, test_size=0.25, random_state=seed)
@@ -133,7 +133,7 @@ fit_params = {
        'early_stopping_rounds': [200],
        'eval_metric': 'auc'
        } 
-random_search.fit(X, y, **fit_params
+random_search.fit(X, y #, **fit_params
         )
 timer(start_time) # timing ends here for "start_time" variable
 
@@ -146,7 +146,7 @@ print(random_search.best_score_ * 2 - 1)
 print('\n Best hyperparameters:')
 print(random_search.best_params_)
 print('\n Parameters:')
-print(random_search.get_params)
+print(random_search.get_params())
 results = pd.DataFrame(random_search.cv_results_)
 print('\n Predicting...')
 y_test = random_search.predict_proba(test[col])
