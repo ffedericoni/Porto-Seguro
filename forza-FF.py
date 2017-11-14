@@ -1,13 +1,13 @@
 #https://www.kaggle.com/the1owl/forza-baseline/code
+"""This is the forza-FF.py source code"""
 import numpy as np
 import pandas as pd
 from sklearn import metrics, model_selection
 import xgboost as xgb
 #import lightgbm as lgb
-from multiprocessing import Pool, cpu_count
 from datetime import datetime
 
-cpus=min(1, cpu_count())
+
 
 
 def timer(start_time=None):
@@ -21,6 +21,21 @@ def timer(start_time=None):
 
 train = pd.read_csv('../input/train.csv')
 test = pd.read_csv('../input/test.csv')
+
+#ff drop least important features
+#worst 5, excluding ps_ind_14 = ps_ind_10_bin + ps_ind_11_bin + ps_ind_12_bin + ps_ind_13_bin
+li_features = ['ps_ind_13_bin', 'ps_ind_10_bin',
+'ps_ind_11_bin', 'ps_ind_12_bin']
+#second worst 5
+#li_features += ['ps_car_10_cat', 'ps_calc_20_bin',
+#'ps_ind_18_bin', 'ps_calc_15_bin', 'ps_calc_16_bin']
+#li_features = [] #Dont drop
+train = train.drop(li_features, axis=1)
+test = test.drop(li_features, axis=1)
+
+print('Train shape:', train.shape)
+print('Test shape:', test.shape)
+
 col = [c for c in train.columns if c not in ['id','target']]
 col = [c for c in col if not c.startswith('ps_calc_')]
 
@@ -39,7 +54,7 @@ def transform_df(df):
 #        print('Now transforming col ', c)
         if '_bin' not in c: #standard arithmetic
             df[c+str('_median_range')] = (df[c].values > d_median[c]).astype(np.int)
-            df[c+str('_mean_range')] = (df[c].values > d_mean[c]).astype(np.int)
+            #df[c+str('_mean_range')] = (df[c].values > d_mean[c]).astype(np.int)
             #df[c+str('_sq')] = np.power(df[c].values,2).astype(np.float32)
             #df[c+str('_sqr')] = np.square(df[c].values).astype(np.float32)
             #df[c+str('_log')] = np.log(np.abs(df[c].values) + 1)
@@ -50,14 +65,6 @@ def transform_df(df):
                 df[c+'_oh_' + str(val)] = (df[c].values == val).astype(np.int)
     return df
 
-def multi_transform(df):
-    print('Init Shape: ', df.shape)
-    p = Pool(cpus)
-    df = p.map(transform_df, np.array_split(df, cpus))
-    df = pd.concat(df, axis=0, ignore_index=True).reset_index(drop=True)
-    p.close(); p.join()
-    print('After Shape: ', df.shape)
-    return df
 
 def gini(y, pred):
     fpr, tpr, thr = metrics.roc_curve(y, pred, pos_label=1)
@@ -70,20 +77,19 @@ def gini_xgb(pred, y):
 
 start_time = timer(None) # timing starts from this point for "start_time" variable
 
-seed=99
-params = {'eta': 0.02, 'max_depth': 4, 'subsample': 0.9, 'colsample_bytree': 0.9,
+seed=77
+params = {'eta': 0.07, 'max_depth': 4, 'subsample': 0.9, 'colsample_bytree': 0.9,
           'objective': 'binary:logistic', 'eval_metric': 'auc', 
-          'scale_pos_weight': 1, 'random_state': seed, 'silent': True}
+          'gamma': 4, 'random_state': seed, 'silent': True,
+          'min_child_weight': 1.0, 'nthread': 2,
+          'max_delta_step':1}
 test_perc = 0.25
 x1, x2, y1, y2 = model_selection.train_test_split(train, train['target'], 
                                                   test_size=test_perc, 
                                                   random_state=seed)
 
-#x1 = multi_transform(x1)
-#x2 = multi_transform(x2)
-#test = multi_transform(test)
-x1 = transform_df(x1)
-x2 = transform_df(x2)
+#unc x1 = transform_df(x1)
+#unc x2 = transform_df(x2)
 test = transform_df(test)
 
 col = [c for c in x1.columns if c not in ['id','target']]
@@ -94,22 +100,32 @@ print(x1.values.shape, x2.values.shape)
 #tdups = multi_transform(train)
 tdups = transform_df(train)
 print('Train Shape: ', tdups.shape)
-dups = tdups[tdups.duplicated(subset=col, keep=False)]
+#dups = tdups[tdups.duplicated(subset=col, keep=False)]
 
-x1 = x1[~(x1['id'].isin(dups['id'].values))]
-x2 = x2[~(x2['id'].isin(dups['id'].values))]
+
+#unc x1 = x1[~(x1['id'].isin(dups['id'].values))]
+#unc x2 = x2[~(x2['id'].isin(dups['id'].values))]
 print(x1.values.shape, x2.values.shape)
 
-y1 = x1['target']
-y2 = x2['target']
-x1 = x1[col]
-x2 = x2[col]
+#unc y1 = x1['target']
+#unc y2 = x2['target']
+#unc x1 = x1[col]
+#unc x2 = x2[col]
+#%%
+#unc watchlist = [(xgb.DMatrix(x1, y1), 'train'), (xgb.DMatrix(x2, y2), 'valid')]
+#unc model = xgb.train(params, xgb.DMatrix(x1, y1), 2500,  watchlist, #feval=gini_xgb, 
+#unc                   maximize=True, verbose_eval=100, early_stopping_rounds=200)
 
-watchlist = [(xgb.DMatrix(x1, y1), 'train'), (xgb.DMatrix(x2, y2), 'valid')]
-model = xgb.train(params, xgb.DMatrix(x1, y1), 961,  watchlist, #feval=gini_xgb, 
-                  maximize=True, verbose_eval=100, early_stopping_rounds=200)
-test['target'] = model.predict(xgb.DMatrix(test[col]), ntree_limit=model.best_ntree_limit+45)
-test['target'] = (np.exp(test['target'].values) - 1.0).clip(0,1)
+ev_hist = xgb.cv(params, xgb.DMatrix(tdups[col], tdups['target']), 300,  nfold=5, 
+                  metrics={'auc'}, seed=51, stratified=True,
+                  maximize=True, verbose_eval=20, as_pandas = True)
+
+raise NameError('End of Run')
+
+
+
+test['target'] = model.predict(xgb.DMatrix(test[col]), ntree_limit=model.best_ntree_limit)
+#test['target'] = (np.exp(test['target'].values) - 1.0).clip(0,1)
 timer(start_time) # timing ends here for "start_time" variable
 filename = 'Forza-xgb-d' + str(start_time.day) + '-h' + str(start_time.hour) + '.csv'
 test[['id','target']].to_csv(filename, index=False, float_format='%.5f')
@@ -119,7 +135,8 @@ print("Test % =", test_perc, "Seed =", seed)
 dumpfile = 'Forza-xgb-d' + str(start_time.day) + '-h' + str(start_time.hour) + '.dump'
 model.dump_model(dumpfile, fmap='', with_stats=False)
 
-
+print(datetime.now(), '\a')
+print(__doc__)
 
 ##LightGBM
 #def gini_lgb(preds, dtrain):
