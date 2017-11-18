@@ -75,14 +75,30 @@ def gini_xgb(pred, y):
     y = y.get_label()
     return 'gini', gini(y, pred)
 
+def reduce_memory_footprint(df):
+    """
+    Convert DataFrame columns from float64 to float32 and from int64 to int32.
+    The operation reduces the memory footprint and speeds up numpy calculations
+    """
+    for col in df.columns:
+        if df[col].dtypes == 'float64':
+            df[col] = df[col].astype('float32')
+        elif df[col].dtypes == 'int64':
+            df[col] = df[col].astype('int32')
+    
+    return df
+
+train = reduce_memory_footprint(train)
+test = reduce_memory_footprint(test)
+
 start_time = timer(None) # timing starts from this point for "start_time" variable
 
 seed=77
-params = {'eta': 0.07, 'max_depth': 4, 'subsample': 0.9, 'colsample_bytree': 0.9,
+params = {'eta': 0.05, 'max_depth': 4, 'subsample': 0.7, 'colsample_bytree': 0.8,
           'objective': 'binary:logistic', 'eval_metric': 'auc', 
           'gamma': 4, 'random_state': seed, 'silent': True,
-          'min_child_weight': 1.0, 'nthread': 2,
-          'max_delta_step':1}
+          'min_child_weight': 10, 'nthread': 3,
+          'max_delta_step':5}
 test_perc = 0.25
 x1, x2, y1, y2 = model_selection.train_test_split(train, train['target'], 
                                                   test_size=test_perc, 
@@ -92,20 +108,20 @@ x1, x2, y1, y2 = model_selection.train_test_split(train, train['target'],
 #unc x2 = transform_df(x2)
 test = transform_df(test)
 
-col = [c for c in x1.columns if c not in ['id','target']]
+col = [c for c in test.columns if c not in ['id','target']]
 col = [c for c in col if not c.startswith('ps_calc_')]
-print(x1.values.shape, x2.values.shape)
+#print(x1.values.shape, x2.values.shape)
 
 #remove duplicates just in case
 #tdups = multi_transform(train)
 tdups = transform_df(train)
-print('Train Shape: ', tdups.shape)
+print('Train Shape: ', tdups[col].shape)
 #dups = tdups[tdups.duplicated(subset=col, keep=False)]
 
 
 #unc x1 = x1[~(x1['id'].isin(dups['id'].values))]
 #unc x2 = x2[~(x2['id'].isin(dups['id'].values))]
-print(x1.values.shape, x2.values.shape)
+#print(x1.values.shape, x2.values.shape)
 
 #unc y1 = x1['target']
 #unc y2 = x2['target']
@@ -115,10 +131,12 @@ print(x1.values.shape, x2.values.shape)
 #unc watchlist = [(xgb.DMatrix(x1, y1), 'train'), (xgb.DMatrix(x2, y2), 'valid')]
 #unc model = xgb.train(params, xgb.DMatrix(x1, y1), 2500,  watchlist, #feval=gini_xgb, 
 #unc                   maximize=True, verbose_eval=100, early_stopping_rounds=200)
+ntrees = 800
+ev_hist = xgb.cv(params, xgb.DMatrix(tdups[col], tdups['target']), ntrees,  nfold=5, 
+                  metrics={'auc'}, seed=seed, stratified=True,
+                  maximize=True, verbose_eval=int(ntrees/10), as_pandas = True)
+timer(start_time)
 
-ev_hist = xgb.cv(params, xgb.DMatrix(tdups[col], tdups['target']), 300,  nfold=5, 
-                  metrics={'auc'}, seed=51, stratified=True,
-                  maximize=True, verbose_eval=20, as_pandas = True)
 
 raise NameError('End of Run')
 
